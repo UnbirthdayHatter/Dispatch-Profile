@@ -1,0 +1,17 @@
+# OS junk
+.DS_Store
+Thumbs.db
+
+# Editors
+.vscode/
+.idea/
+
+# Environment / secrets
+.env
+
+# Build output (if you add tooling later)
+dist/
+build/
+
+# Logs
+*.log
