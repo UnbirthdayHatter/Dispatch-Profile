@@ -1,0 +1,572 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dispatch Character Screen</title>
+    
+    <!-- 1. Load Dependencies via CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- React Core (Pinned Versions) -->
+    <script crossorigin src="https://unpkg.com/react@18.2.0/umd/react.development.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18.2.0/umd/react-dom.development.js"></script>
+    
+    <!-- Utilities -->
+    <script crossorigin src="https://unpkg.com/prop-types@15.8.1/prop-types.min.js"></script>
+    
+    <!-- Recharts (Using 2.12.2 which is stable for UMD) -->
+    <script crossorigin src="https://unpkg.com/recharts@2.12.2/umd/Recharts.js"></script>
+    
+    <!-- Icons: Phosphor Icons -->
+    <script src="https://unpkg.com/@phosphor-icons/web"></script>
+    
+    <!-- html2canvas for taking screenshots -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    
+    <!-- Babel -->
+    <script crossorigin src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+    <!-- 2. Styles -->
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Rajdhani:wght@400;500;600;700&display=swap');
+        
+        .font-orbitron { font-family: 'Orbitron', sans-serif; }
+        .font-rajdhani { font-family: 'Rajdhani', sans-serif; }
+        
+        @keyframes scanlines {
+          0% { background-position: 0 0; }
+          100% { background-position: 0 100%; }
+        }
+        .animate-scanlines {
+          animation: scanlines 8s linear infinite;
+        }
+        .bg-paper {
+           background-color: #F3EAD3;
+        }
+        /* Custom Scrollbar for Textareas */
+        textarea::-webkit-scrollbar { width: 6px; }
+        textarea::-webkit-scrollbar-track { background: transparent; }
+        textarea::-webkit-scrollbar-thumb { background: #bdae93; border-radius: 3px; }
+        
+        body { background-color: #0a1014; margin: 0; }
+
+        /* Icon sizing helper */
+        .icon-sm { font-size: 14px; }
+        .icon-md { font-size: 18px; }
+        .icon-lg { font-size: 24px; }
+        
+        /* Button hover effect */
+        .download-btn:hover {
+            background-color: rgba(34, 197, 94, 0.1);
+            color: #4ade80;
+        }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+
+    <!-- 3. The React Application -->
+    <script type="text/babel">
+        // Destructure globals provided by UMD scripts
+        const { useState, useRef } = React;
+        const { Radar, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, ResponsiveContainer } = Recharts;
+
+        // --- Default Data ---
+        const DEFAULT_DATA = {
+          name: "SONAR",
+          subtitle: "Batboy Conman",
+          tags: ["INTELLECTUAL", "HYBRID"],
+          age: "32",
+          height: "6'0",
+          abilities: "Bat Physiology, Flight, Echolocation",
+          birthplace: "San Francisco, CA",
+          bio: "Transforms into a giant bat. Highly intelligent. Addicted to a variety of controlled substances. A master manipulator.",
+          crimes: "Embezzlement, Fraud, Grand Larceny",
+          level: 1, // LEVEL 1–20
+          stats: [
+            { subject: 'COMBAT', A: 7, fullMark: 10 },
+            { subject: 'VIGOR', A: 5, fullMark: 10 },
+            { subject: 'MOBILITY', A: 9, fullMark: 10 },
+            { subject: 'CHARISMA', A: 8, fullMark: 10 },
+            { subject: 'INTELLECT', A: 10, fullMark: 10 },
+          ]
+        };
+
+        function DispatchScreen() {
+          const [charData, setCharData] = useState(DEFAULT_DATA);
+          
+          // --- Default images (Reverted to local files with fallback) ---
+          const [mainImage, setMainImage] = useState("Sonar_full.webp"); 
+          const [mugshot, setMugshot] = useState("330px-Hero_Busts_Sonar_Normal.webp");
+          
+          // --- New State for Tag Icons ---
+          const [tagIcons, setTagIcons] = useState([null, null]);
+
+          const mainImgInputRef = useRef(null);
+          const mugshotInputRef = useRef(null);
+          const contentRef = useRef(null); 
+
+          const handleTextChange = (field, value) => {
+            setCharData(prev => ({ ...prev, [field]: value }));
+          };
+
+          const handleTagChange = (index, value) => {
+            const newTags = [...charData.tags];
+            newTags[index] = value;
+            setCharData(prev => ({ ...prev, tags: newTags }));
+          };
+
+          const handleStatChange = (index, value) => {
+            const newStats = [...charData.stats];
+            newStats[index].A = parseInt(value, 10);
+            setCharData(prev => ({ ...prev, stats: newStats }));
+          };
+
+          const handleImageUpload = (e, setter) => {
+            const file = e.target.files[0];
+            if (file) {
+              const reader = new FileReader();
+              reader.onloadend = () => {
+                setter(reader.result);
+              };
+              reader.readAsDataURL(file);
+            }
+          };
+          
+          const handleTagIconUpload = (index, e) => {
+            const file = e.target.files[0];
+            if (file) {
+              const reader = new FileReader();
+              reader.onloadend = () => {
+                const newIcons = [...tagIcons];
+                newIcons[index] = reader.result;
+                setTagIcons(newIcons);
+              };
+              reader.readAsDataURL(file);
+            }
+          };
+
+          const handleDownload = async () => {
+            if (contentRef.current) {
+                try {
+                    document.body.style.cursor = 'wait';
+                    
+                    const originalWidth = contentRef.current.style.width;
+                    const originalHeight = contentRef.current.style.height;
+                    const originalOverflow = contentRef.current.style.overflow;
+                    
+                    contentRef.current.style.width = '1600px'; 
+                    contentRef.current.style.height = 'auto';
+                    contentRef.current.style.minHeight = '900px';
+                    contentRef.current.style.overflow = 'visible'; 
+
+                    const canvas = await html2canvas(contentRef.current, {
+                        scale: 2, 
+                        backgroundColor: null, 
+                        useCORS: true, 
+                        windowWidth: 1600,
+                        onclone: (clonedDoc) => {
+                            const clonedElement = clonedDoc.querySelector('[data-capture-target="true"]');
+                            if (clonedElement) {
+                                clonedElement.style.width = '1600px';
+                                clonedElement.style.height = 'auto';
+                                clonedElement.style.overflow = 'visible';
+                            }
+
+                            const scrollableDiv = clonedDoc.querySelector('.overflow-y-auto');
+                            if (scrollableDiv) {
+                                scrollableDiv.style.overflow = 'visible';
+                                scrollableDiv.style.height = 'auto';
+                                scrollableDiv.style.flexGrow = '0';
+                            }
+                            
+                            const cardInner = scrollableDiv?.parentElement;
+                            if (cardInner) {
+                                cardInner.style.height = 'auto';
+                                cardInner.style.overflow = 'visible';
+                            }
+                            
+                            const mainCard = cardInner?.parentElement;
+                            if (mainCard) {
+                                mainCard.style.height = 'auto';
+                                mainCard.style.overflow = 'visible';
+                            }
+
+                            const textInputs = clonedDoc.querySelectorAll('input:not([type="range"]):not([type="file"]), textarea');
+                            
+                            textInputs.forEach(input => {
+                                const div = clonedDoc.createElement('div');
+                                
+                                div.className = input.className;
+                                
+                                const style = window.getComputedStyle(input);
+                                div.style.fontSize = style.fontSize;
+                                div.style.fontFamily = style.fontFamily;
+                                div.style.fontWeight = style.fontWeight;
+                                div.style.color = style.color;
+                                div.style.letterSpacing = style.letterSpacing;
+                                div.style.textAlign = style.textAlign;
+                                div.style.textTransform = style.textTransform;
+                                
+                                div.style.overflow = 'visible';
+                                div.style.border = 'none'; 
+                                div.style.background = 'transparent';
+                                div.style.height = 'auto'; 
+                                div.style.display = 'flex'; 
+                                div.style.alignItems = 'center';
+
+                                if (input.tagName.toLowerCase() === 'textarea') {
+                                    div.style.whiteSpace = 'pre-wrap';
+                                } else {
+                                    div.style.whiteSpace = 'nowrap';
+                                }
+
+                                if (input.value === charData.name || input.classList.contains('font-orbitron')) {
+                                    div.style.lineHeight = '1.1'; 
+                                    div.style.paddingTop = '8px'; 
+                                    div.style.paddingBottom = '8px';
+                                    div.style.marginTop = '-4px';
+                                }
+
+                                if (input.parentElement.className.includes('border-l-[3px]')) {
+                                    div.style.paddingBottom = '4px';
+                                    div.style.marginBottom = '-2px';
+                                }
+                                
+                                div.textContent = input.value;
+                                input.replaceWith(div);
+                            });
+
+                            const rangeInputs = clonedDoc.querySelectorAll('input[type="range"]');
+                            rangeInputs.forEach(input => {
+                                const value = parseFloat(input.value);
+                                const max = parseFloat(input.max) || 10;
+                                const min = parseFloat(input.min) || 0;
+                                const percentage = ((value - min) / (max - min)) * 100;
+
+                                const wrapper = clonedDoc.createElement('div');
+                                wrapper.style.flex = '1';
+                                wrapper.style.position = 'relative';
+                                wrapper.style.height = '100%';
+                                wrapper.style.display = 'flex';
+                                wrapper.style.alignItems = 'center';
+                                wrapper.style.margin = '0 8px';
+
+                                const track = clonedDoc.createElement('div');
+                                track.style.width = '100%';
+                                track.style.height = '6px';
+                                track.style.backgroundColor = '#c7bfab';
+                                track.style.borderRadius = '8px';
+
+                                const fakeThumb = clonedDoc.createElement('div');
+                                fakeThumb.style.position = 'absolute';
+                                fakeThumb.style.left = `${percentage}%`;
+                                fakeThumb.style.transform = 'translate(-50%, 0)';
+                                fakeThumb.style.width = '16px'; 
+                                fakeThumb.style.height = '16px';
+                                fakeThumb.style.backgroundColor = '#d97706';
+                                fakeThumb.style.borderRadius = '50%';
+                                fakeThumb.style.zIndex = '999';
+
+                                wrapper.appendChild(track);
+                                wrapper.appendChild(fakeThumb);
+                                input.replaceWith(wrapper);
+                            });
+                        }
+                    });
+                    
+                    const link = document.createElement('a');
+                    link.download = `${charData.name.replace(/\s+/g, '_')}_DISPATCH_PROFILE.png`;
+                    link.href = canvas.toDataURL('image/png');
+                    link.click();
+                    
+                    contentRef.current.style.width = originalWidth;
+                    contentRef.current.style.height = originalHeight;
+                    contentRef.current.style.overflow = originalOverflow;
+
+                } catch (error) {
+                    console.error('Download failed:', error);
+                    alert('Could not download image. Please try again.');
+                } finally {
+                    document.body.style.cursor = 'default';
+                }
+            }
+          };
+
+          return (
+            <div className="min-h-screen w-full bg-[#0a1014] text-[#F3EAD3] overflow-hidden relative select-none font-rajdhani flex flex-col">
+              
+              {/* --- CRT Overlay Effects --- */}
+              <div className="absolute inset-0 pointer-events-none z-50 bg-[linear-gradient(rgba(18,16,16,0)_50%,rgba(0,0,0,0.1)_50%),linear-gradient(90deg,rgba(255,0,0,0.06),rgba(0,255,0,0.02),rgba(0,0,255,0.06))] bg-[length:100%_2px,3px_100%] animate-scanlines opacity-40"></div>
+              <div className="absolute inset-0 pointer-events-none z-40 bg-radial-gradient from-transparent via-transparent to-[#05080a] opacity-90"></div>
+              
+              {/* --- Header --- */}
+              <div className="relative z-10 w-full h-12 flex items-center justify-between px-6 bg-[#0f1619] border-b border-green-900/30 text-xs tracking-widest text-green-600/70 font-orbitron flex-shrink-0">
+                <div className="flex items-center space-x-6">
+                  <span className="text-lg font-black italic text-white/90">SDN</span>
+                  <span>11022 CS | 15.79%</span>
+                </div>
+                <div className="flex items-center gap-6">
+                    <span>DATABASE ACCESS: GRANTED</span>
+                    
+                    {/* Download Button */}
+                    <button 
+                        onClick={handleDownload}
+                        className="download-btn flex items-center gap-2 px-3 py-1 border border-green-800/50 rounded transition-colors text-green-500 cursor-pointer z-50"
+                        title="Download Image"
+                    >
+                        <i className="ph-bold ph-download-simple icon-sm"></i>
+                        <span className="hidden sm:inline">DOWNLOAD PROFILE</span>
+                    </button>
+                </div>
+              </div>
+
+              {/* --- Main Content Layout --- */}
+              <div
+                ref={contentRef}
+                data-capture-target="true"
+                className="relative z-10 p-6 max-w-[1600px] mx-auto flex-grow h-[calc(100vh-3rem)] flex flex-col lg:flex-row gap-4 items-start w-full"
+              >
+                
+                {/* --- LEFT PANEL: Character Profile --- */}
+                <div className="flex-grow h-full w-full lg:w-2/3 bg-paper text-[#2c2a25] rounded-sm shadow-[0_0_20px_rgba(0,0,0,0.5)] relative flex flex-col md:flex-row overflow-hidden border-4 border-[#dcd3c0]">
+                    
+                    {/* Left Side: Character Art */}
+                    <div className="w-full md:w-[55%] relative h-full flex flex-col">
+                        <div 
+                            className="flex-grow relative cursor-pointer group overflow-hidden"
+                            onClick={() => mainImgInputRef.current.click()}
+                        >
+                            <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-white/40 to-transparent"></div>
+                            <img 
+                                src={mainImage} 
+                                alt="Character" 
+                                className="w-full h-full object-contain object-bottom transform transition-transform duration-500 group-hover:scale-105"
+                                onError={(e) => { e.target.src = 'https://placehold.co/600x900/2c2a25/F3EAD3?text=Image+Error'; }}
+                            />
+                            <div className="absolute top-4 left-4 bg-black/60 text-white text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-2" data-html2canvas-ignore>
+                                <i className="ph-fill ph-camera icon-sm"></i> Upload Art
+                            </div>
+                            <input type="file" ref={mainImgInputRef} className="hidden" accept="image/*" onChange={(e) => handleImageUpload(e, setMainImage)} />
+                        </div>
+
+                        {/* Name & Tags Overlay */}
+                        <div className="absolute bottom-0 left-0 w-full p-6 bg-gradient-to-t from-[#F3EAD3] via-[#F3EAD3]/90 to-transparent pt-12">
+                            <div className="relative z-10">
+                                <input 
+                                    value={charData.name}
+                                    onChange={(e) => handleTextChange('name', e.target.value)}
+                                    className="font-orbitron text-5xl font-black uppercase bg-transparent border-none outline-none w-full text-[#1a1a1a] placeholder-[#1a1a1a]/30 tracking-wide py-2 pr-4"
+                                />
+                                <input 
+                                    value={charData.subtitle}
+                                    onChange={(e) => handleTextChange('subtitle', e.target.value)}
+                                    className="font-rajdhani font-bold text-xl uppercase text-[#5a5548] bg-transparent border-none outline-none w-full mt-1 pr-4"
+                                />
+                                <div className="flex gap-3 mt-4">
+                                    {charData.tags.map((tag, idx) => (
+                                        <div key={idx} className="bg-[#e8dec0] text-[#3d3830] pl-2 pr-3 py-3 text-sm font-bold uppercase border-l-[3px] border-[#3d3830] flex items-center gap-2 shadow-sm">
+                                            <label className="cursor-pointer hover:opacity-70 transition-opacity relative group/icon mr-2 flex-shrink-0 w-4 h-4 flex items-center justify-center">
+                                                {tagIcons[idx] ? (
+                                                    <img src={tagIcons[idx]} className="w-full h-full object-contain" />
+                                                ) : (
+                                                    idx === 0 ? <i className="ph-fill ph-brain icon-sm"></i> : <i className="ph-fill ph-shield icon-sm"></i>
+                                                )}
+                                                <input 
+                                                    type="file" 
+                                                    className="hidden" 
+                                                    accept="image/*" 
+                                                    onChange={(e) => handleTagIconUpload(idx, e)} 
+                                                />
+                                                <div className="absolute -top-6 left-1/2 -translate-x-1/2 bg-black/80 text-white text-[8px] px-1 rounded opacity-0 group-hover/icon:opacity-100 pointer-events-none whitespace-nowrap" data-html2canvas-ignore>
+                                                    Upload Icon
+                                                </div>
+                                            </label>
+
+                                            <input 
+                                                value={tag}
+                                                onChange={(e) => handleTagChange(idx, e.target.value)}
+                                                className="bg-transparent w-24 outline-none uppercase font-bold text-[#3d3830] ml-2"
+                                            />
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Right Side: Details */}
+                    <div className="w-full md:w-[45%] h-full border-l-2 border-[#dcd3c0] p-6 flex flex-col bg-[#F3EAD3]">
+                        <div className="flex justify-end mb-6">
+                            <div 
+                                className="w-48 h-28 bg-white border-2 border-[#bdae93] relative overflow-hidden cursor-pointer hover:brightness-95 shadow-inner group"
+                                onClick={() => mugshotInputRef.current.click()}
+                                style={{
+                                    backgroundImage: 'linear-gradient(#ccc 1px, transparent 1px)',
+                                    backgroundSize: '100% 20px'
+                                }}
+                            >
+                                <div className="absolute left-0 top-0 bottom-0 w-6 border-r border-gray-300 flex flex-col justify-between py-1 text-[8px] text-gray-400 font-mono items-center bg-gray-50/50">
+                                    <span>6'6"</span><span>6'0"</span><span>5'6"</span><span>5'0"</span>
+                                </div>
+                                <img 
+                                    src={mugshot} 
+                                    alt="Mugshot" 
+                                    className="w-full h-full object-cover pl-6"
+                                    onError={(e) => { e.target.src = 'https://placehold.co/300x300/2c2a25/F3EAD3?text=Image+Error'; }}
+                                />
+                                 <div className="absolute inset-0 flex items-center justify-center bg-black/10 opacity-0 group-hover:opacity-100 transition-opacity" data-html2canvas-ignore>
+                                     <i className="ph-fill ph-camera text-white drop-shadow-md icon-lg"></i>
+                                 </div>
+                                <input type="file" ref={mugshotInputRef} className="hidden" accept="image/*" onChange={(e) => handleImageUpload(e, setMugshot)} />
+                            </div>
+                        </div>
+
+                        <div className="space-y-4 flex-grow overflow-y-auto pr-2">
+                            <div className="flex flex-col">
+                                 <label className="font-bold text-[#8c8474] text-xs uppercase tracking-wider mb-0">Age</label>
+                                 <input 
+                                    value={charData.age} 
+                                    onChange={(e) => handleTextChange('age', e.target.value)}
+                                    className="bg-transparent border-b border-[#dcd3c0] focus:border-[#3d3830] outline-none text-xl font-bold text-[#2c2a25] w-full"
+                                 />
+                            </div>
+
+                            <div className="flex flex-col">
+                                 <label className="font-bold text-[#8c8474] text-xs uppercase tracking-wider mb-0">Height</label>
+                                 <input 
+                                    value={charData.height} 
+                                    onChange={(e) => handleTextChange('height', e.target.value)}
+                                    className="bg-transparent border-b border-[#dcd3c0] focus:border-[#3d3830] outline-none text-xl font-bold text-[#2c2a25] w-full"
+                                 />
+                            </div>
+
+                            <div className="flex flex-col">
+                                 <label className="font-bold text-[#8c8474] text-xs uppercase tracking-wider mb-0">Abilities</label>
+                                 <textarea 
+                                    value={charData.abilities} 
+                                    onChange={(e) => handleTextChange('abilities', e.target.value)}
+                                    className="bg-transparent border-none outline-none text-lg font-semibold text-[#4a463e] w-full resize-none h-16 leading-tight mt-1"
+                                 />
+                            </div>
+
+                            <div className="flex flex-col">
+                                 <label className="font-bold text-[#8c8474] text-xs uppercase tracking-wider mb-0">Birthplace</label>
+                                 <input 
+                                    value={charData.birthplace} 
+                                    onChange={(e) => handleTextChange('birthplace', e.target.value)}
+                                    className="bg-transparent border-b border-[#dcd3c0] focus:border-[#3d3830] outline-none text-lg font-medium text-[#4a463e] w-full"
+                                 />
+                            </div>
+
+                            <div className="pt-2">
+                                <label className="font-bold text-[#8c8474] text-xs uppercase tracking-wider mb-1 block">Bio</label>
+                                <textarea 
+                                  value={charData.bio} 
+                                  onChange={(e) => handleTextChange('bio', e.target.value)}
+                                  className="w-full bg-[#ebe4d3] border-l-4 border-[#dcd3c0] p-2 italic text-[#5a5548] outline-none resize-none h-24 text-sm leading-relaxed"
+                                />
+                            </div>
+
+                            <div className="pt-2">
+                                 <label className="font-bold text-[#8c8474] text-xs uppercase tracking-wider mb-1 block">Crimes</label>
+                                 <textarea 
+                                    value={charData.crimes} 
+                                    onChange={(e) => handleTextChange('crimes', e.target.value)}
+                                    className="w-full bg-transparent text-[#8a3a3a] font-medium outline-none resize-none h-12 text-sm leading-snug"
+                                 />
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                {/* RIGHT COLUMN: Radar + Level + sliders */}
+                <div className="w-full lg:w-[380px] h-full flex flex-col">
+                     <div className="bg-paper h-full rounded-sm shadow-[0_0_20px_rgba(0,0,0,0.5)] border-4 border-[#dcd3c0] p-4 flex flex-col relative">
+                        
+                        <div className="absolute top-4 right-4 flex gap-2">
+                            <div className="bg-[#2c2a25] text-[#F3EAD3] p-1.5 rounded-full">
+                                <i className="ph-fill ph-shield icon-md"></i>
+                            </div>
+                        </div>
+
+                        <div className="w-full h-[300px] relative">
+                             <ResponsiveContainer width="100%" height="100%">
+                                <RadarChart cx="50%" cy="50%" outerRadius="60%" data={charData.stats}>
+                                <PolarGrid stroke="#a8a29e" strokeDasharray="0" />
+                                <PolarAngleAxis 
+                                    dataKey="subject" 
+                                    tick={{ fill: '#2c2a25', fontSize: 12, fontWeight: 800, fontFamily: 'Orbitron' }} 
+                                />
+                                <PolarRadiusAxis angle={90} domain={[0, 10]} tick={false} axisLine={false} />
+                                <Radar
+                                    name="Stats"
+                                    dataKey="A"
+                                    stroke="#2c2a25"
+                                    strokeWidth={2}
+                                    fill="rgba(255, 193, 7, 0.3)" 
+                                    fillOpacity={0.6}
+                                />
+                                </RadarChart>
+                            </ResponsiveContainer>
+                            <div className="absolute inset-0 flex items-center justify-center pointer-events-none opacity-20">
+                                <div className="w-1 h-1 bg-black rounded-full"></div>
+                            </div>
+                        </div>
+
+                        <div className="mt-4 bg-[#e6dec5] p-4 rounded border border-[#dcd3c0]">
+                            {/* LEVEL CONTROL ABOVE COMBAT ON THE RIGHT */}
+                            <div className="flex justify-end items-center mb-3">
+                                <span className="mr-2 text-[10px] font-orbitron tracking-wide text-[#5a5548] uppercase">
+                                    Level
+                                </span>
+                                <select
+                                    value={charData.level}
+                                    onChange={(e) => handleTextChange('level', parseInt(e.target.value, 10))}
+                                    className="bg-[#d1c7a9] text-[11px] font-bold px-2 py-1 rounded border border-[#b2a98c] cursor-pointer text-[#2c2a25]"
+                                >
+                                    {Array.from({ length: 20 }, (_, i) => i + 1).map((num) => (
+                                        <option
+                                            key={num}
+                                            value={num}
+                                            className="text-[#2c2a25] bg-[#ebe4d3]"
+                                        >
+                                            {num}
+                                        </option>
+                                    ))}
+                                </select>
+                            </div>
+
+                            <div className="space-y-3">
+                                {charData.stats.map((stat, idx) => (
+                                <div key={idx} className="flex items-center gap-2 text-sm">
+                                    <span className="w-20 font-bold text-[#5a5548] uppercase text-[11px] font-orbitron tracking-wide">
+                                        {stat.subject}
+                                    </span>
+                                    <input 
+                                        type="range" 
+                                        min="0" 
+                                        max="10" 
+                                        step="1" 
+                                        value={stat.A} 
+                                        onChange={(e) => handleStatChange(idx, e.target.value)}
+                                        className="flex-1 h-1.5 bg-[#c7bfab] rounded-lg appearance-none cursor-pointer accent-[#d97706]"
+                                    />
+                                    <span className="w-8 text-right font-bold text-[#d97706] font-mono">{stat.A}</span>
+                                </div>
+                                ))}
+                            </div>
+                        </div>
+                     </div>
+                </div>
+              </div>
+            </div>
+          );
+        }
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<DispatchScreen />);
+    </script>
+</body>
+</html>
